@@ -17,3 +17,6 @@ __pycache__/
 *_sync.csv
 sync_check/
 telemetry/
+
+# keep README images
+!docs/*.png

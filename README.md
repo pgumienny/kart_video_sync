@@ -16,7 +16,7 @@ scripts) without lining up clips by hand.
 
 *A 14-minute GoPro clip matched against ten telemetry files from the same weekend. Blue is the
 RPM recovered from the camera's audio; orange is the logger's RPM channel shifted by
-the detected offset (+282.87 s, the logger started 4:43 into the video). The two
+the detected offset (4:42.870, i.e. the logger started 4 min 42.870 s into the video). The two
 traces overlap lap after lap. Before the logger starts, the blue trace shows the
 pre-session idle and other karts nearby. The matching ignores that part.*
 
@@ -84,24 +84,28 @@ For each video that has a confident match, a copy of the telemetry file is writt
 next to the video:
 
 ```
-GX010034 - 33.93.csv
+GX010034 - 0m33s925ms.csv
+GX010040 - 4m42s870ms.csv
 ```
 
-The number is the **offset in seconds**, i.e. the point in the video where telemetry
-time 0 happens:
+The suffix is the **offset** as minutes, seconds and milliseconds: the point in the
+video where telemetry time 0 happens. (File names use `m`/`s`/`ms` because `:` isn't
+allowed in file names on Windows and shows up as `/` in the macOS Finder. On screen and
+in the plots the same offset is shown as `m:ss.mmm`, e.g. `4:42.870`.)
 
 ```
 video_time     = telemetry_time + offset
 telemetry_time = video_time - offset
 ```
 
-A negative offset (e.g. `GX010040 - -12.50.csv`) means the logger started before the
-camera: video time 0 is 12.5 s into the telemetry.
+A negative offset (e.g. `GX010041 - -0m12s500ms.csv`) means the logger started before
+the camera: video time 0 is 12.5 s into the telemetry.
 
 The script also creates `race-day/sync_check/`:
 
 - `<video> - sync.png`: video RPM plotted over telemetry RPM, for a visual check.
-- `summary.csv`: per video, the matched file, offset, correlation and status.
+- `summary.csv`: per video, the matched file, the offset (both `m:ss.mmm` and plain
+  seconds, for spreadsheets and scripts), correlation and status.
 
 | Status | Meaning |
 |---|---|
@@ -115,7 +119,6 @@ Options:
 | Flag | Default | |
 |---|---|---|
 | `--telemetry DIR` | `<folder>/telemetry` | Where the CSV files are. |
-| `--decimals N` | `2` | Decimal places of the offset in file names. |
 
 ### Several race days at once
 

@@ -38,6 +38,23 @@ from kart_rpm import analyze, _mmss, HOP_S
 
 
 # --------------------------------------------------------------------------- #
+# Offset formatting
+# --------------------------------------------------------------------------- #
+def format_offset(seconds, style="clock"):
+    """Format an offset as minutes / seconds / milliseconds.
+
+    style="clock" -> "4:42.870"     (for display; negative: "-0:12.500")
+    style="file"  -> "4m42s870ms"   (safe in file names on every OS)"""
+    sign = "-" if seconds < 0 else ""
+    ms_total = int(round(abs(seconds) * 1000))
+    m, rem = divmod(ms_total, 60_000)
+    s, ms = divmod(rem, 1000)
+    if style == "file":
+        return f"{sign}{m}m{s:02d}s{ms:03d}ms"
+    return f"{sign}{m}:{s:02d}.{ms:03d}"
+
+
+# --------------------------------------------------------------------------- #
 # Telemetry loading (AiM / MyChron CSV export)
 # --------------------------------------------------------------------------- #
 def load_aim_csv(path, channel="RPM"):
@@ -151,7 +168,7 @@ def plot_sync(tv, rv, tt, rt, offset, name, out_png, show=False):
     i0 = list(starts)[int(np.argmax(stds))] if stds and max(stds) > 0 else 0
     zoom = (tv[i0], tv[min(i0 + w, len(tv) - 1)])
 
-    for ax, xl, title in [(axes[0], (0, tv[-1]), f"Video RPM vs telemetry {name}  (offset {offset:+.2f} s)"),
+    for ax, xl, title in [(axes[0], (0, tv[-1]), f"Video RPM vs telemetry {name}  (offset {format_offset(offset)})"),
                           (axes[1], zoom, "Zoom")]:
         ax.set_facecolor("#fcfcfb")
         ax.plot(tv, rv, color=blue, lw=1.3, label="Video (from audio)")
@@ -218,11 +235,11 @@ def main():
                             offset=off, r=rr, overlap=ov))
     results.sort(key=lambda d: -d["r"])
 
-    print(f"{'file':<10}{'date':<32}{'time':<10}{'corr':>6}{'offset s':>10}{'overlap s':>11}")
+    print(f"{'file':<10}{'date':<32}{'time':<10}{'corr':>6}{'offset':>11}{'overlap s':>11}")
     for d in results:
         m = d["meta"]
         print(f"{d['name']:<10}{m.get('Date', ''):<32}{m.get('Time', ''):<10}"
-              f"{d['r']:>6.3f}{d['offset']:>10.2f}{d['overlap']:>11.0f}")
+              f"{d['r']:>6.3f}{format_offset(d['offset']):>11}{d['overlap']:>11.0f}")
 
     best = results[0]
     margin = best["r"] - (results[1]["r"] if len(results) > 1 else 0)
@@ -243,12 +260,13 @@ def main():
     print(f"Correlation: {best['r']:.3f}   (next best file {best['r'] - margin:.3f})")
     if margin < 0.05:
         print("WARNING    : match is not clearly better than the runner-up - check the plot")
-    print(f"Offset     : {offset:+.3f} s  (+/- {spread:.3f} s across {len(good)} windows)")
+    print(f"Offset     : {format_offset(offset)}  (m:ss.mmm = {offset:+.3f} s, "
+          f"+/- {spread * 1000:.0f} ms across {len(good)} windows)")
     print(f"             telemetry_time = video_time {'-' if offset >= 0 else '+'} {abs(offset):.3f}")
     if offset >= 0:
-        print(f"             telemetry t=0 is {offset:.3f} s into the video ({_mmss(offset)})")
+        print(f"             telemetry t=0 is {format_offset(offset)} into the video")
     else:
-        print(f"             video t=0 is {-offset:.3f} s into the telemetry")
+        print(f"             video t=0 is {format_offset(-offset)} into the telemetry")
     if not np.isnan(drift):
         print(f"Clock drift: {drift:+.1f} ms per 1000 s of video")
     print("=" * 64)

@@ -9,9 +9,9 @@ For each video (*.MP4 / *.mov) in the folder:
   2. correlate it with every CSV in <folder>/telemetry   (kart_sync)
   3. verify the best candidates window-by-window
   4. if it's a confident match, copy the CSV to
-        <folder>/<video name> - <offset>.csv
-     where offset = seconds into the video at which telemetry t=0 occurs
-     (telemetry_time = video_time - offset).
+        <folder>/<video name> - <offset>.csv      e.g. "GX010034 - 0m33s925ms.csv"
+     where offset = time into the video at which telemetry t=0 occurs, as
+     <minutes>m<seconds>s<milliseconds>ms (telemetry_time = video_time - offset).
 
 Also writes <folder>/sync_check/<video> - sync.png (overlay plot) and
 <folder>/sync_check/summary.csv. Needs kart_rpm.py and kart_sync.py next to it,
@@ -31,7 +31,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kart_rpm import analyze, HOP_S                                   # noqa: E402
 from kart_sync import (load_aim_csv, resample, coarse_match,          # noqa: E402
-                       fine_align, plot_sync, natural_key)
+                       fine_align, plot_sync, natural_key, format_offset)
 
 VIDEO_EXT = (".mp4", ".mov", ".m4v")
 MIN_OVERLAP_S = 120         # minimum video/telemetry overlap for a match
@@ -67,7 +67,6 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("folder")
     ap.add_argument("--telemetry", default=None, help="default: <folder>/telemetry")
-    ap.add_argument("--decimals", type=int, default=2, help="decimals of the offset in file names")
     a = ap.parse_args()
 
     folder = os.path.abspath(a.folder)
@@ -95,7 +94,7 @@ def main():
         stem = os.path.splitext(os.path.basename(vp))[0]
         t0 = time.time()
         print(f"=== {os.path.basename(vp)}  ({os.path.getsize(vp) / 1e9:.1f} GB)")
-        row = dict(video=os.path.basename(vp), telemetry="", offset_s="", corr="",
+        row = dict(video=os.path.basename(vp), telemetry="", offset="", offset_s="", corr="",
                    offset_mad_s="", duration_s="", status="")
         try:
             res = analyze(vp, whole=True)
@@ -126,7 +125,7 @@ def main():
                 continue
             c.update(v)
             print(f"    {c['name']:<8} coarse r={c['r']:.3f}  windows agree {v['good_frac']:>4.0%}  "
-                  f"full r={v['full_r']:.3f}  offset {v['offset']:+8.2f} +/- {v['mad']:.2f}"
+                  f"full r={v['full_r']:.3f}  offset {format_offset(v['offset']):>10} +/- {v['mad'] * 1000:.0f} ms"
                   f"{'  (candidate)' if v['ok'] else ''}")
             if v["ok"]:
                 verified.append(c)
@@ -143,17 +142,18 @@ def main():
         if len(verified) > 1 and best["full_r"] - verified[1]["full_r"] < AMBIGUOUS_GAP:
             status = f"check: {verified[1]['name']} almost as good"
 
-        off_txt = f"{best['offset']:.{a.decimals}f}"
+        off_txt = format_offset(best["offset"], style="file")
         out = os.path.join(folder, f"{stem} - {off_txt}.csv")
         shutil.copy2(best["path"], out)
         plot_sync(tv, rv, best["tt"], best["rt"], best["offset"], best["name"],
                   os.path.join(check_dir, f"{stem} - sync.png"))
         m = best["meta"]
         print(f"    -> {best['name']} ({m.get('Session', '')}, {m.get('Date', '')} "
-              f"{m.get('Time', '')}), offset {off_txt} s"
+              f"{m.get('Time', '')}), offset {format_offset(best['offset'])}"
               f"{'' if status == 'matched' else '   [' + status + ']'}")
         print(f"    wrote {os.path.basename(out)}\n")
-        row.update(telemetry=best["name"], offset_s=off_txt, corr=f"{best['full_r']:.3f}",
+        row.update(telemetry=best["name"], offset=format_offset(best["offset"]),
+                   offset_s=f"{best['offset']:.3f}", corr=f"{best['full_r']:.3f}",
                    offset_mad_s=f"{best['mad']:.3f}", status=status)
         summary.append(row)
 
@@ -164,7 +164,7 @@ def main():
 
     print("Summary")
     for r in summary:
-        print(f"  {r['video']:<16} {r['status']:<10} {r['telemetry']:<8} {r['offset_s']}")
+        print(f"  {r['video']:<16} {r['status']:<10} {r['telemetry']:<8} {r['offset']}")
     used = [r["telemetry"] for r in summary if r["telemetry"]]
     dup = {u for u in used if used.count(u) > 1}
     if dup:

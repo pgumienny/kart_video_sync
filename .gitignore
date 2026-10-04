@@ -1,0 +1,19 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# outputs / data - keep personal recordings out of the repo
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*.mp3
+*.m4a
+*.wav
+*_rpm.png
+*_rpm.csv
+*_sync.png
+*_sync.csv
+sync_check/
+telemetry/

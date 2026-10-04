@@ -1,0 +1,5 @@
+numpy
+scipy
+matplotlib
+# Optional: only needed if ffmpeg is not installed (ffmpeg is recommended)
+# librosa
